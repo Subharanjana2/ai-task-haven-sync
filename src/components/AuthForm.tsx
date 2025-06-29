@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 
 const AuthForm = () => {
@@ -14,8 +15,25 @@ const AuthForm = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const { signUp, signIn, signInWithGoogle } = useAuth();
+  const [activeTab, setActiveTab] = useState('signin');
+  const { signUp, signIn, signInWithGoogle, user, loading } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Redirect if user is already authenticated
+  useEffect(() => {
+    if (!loading && user) {
+      navigate('/');
+    }
+  }, [user, loading, navigate]);
+
+  // Clear form when switching tabs
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setEmail('');
+    setPassword('');
+    setFullName('');
+  };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,18 +47,34 @@ const AuthForm = () => {
     }
 
     setIsLoading(true);
-    const { error } = await signUp(email, password, fullName);
+    console.log('Attempting sign up for:', email);
     
-    if (error) {
+    try {
+      const { error } = await signUp(email, password, fullName);
+      
+      if (error) {
+        console.error('Sign up error:', error);
+        toast({
+          title: "Sign Up Error",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Success!",
+          description: "Please check your email to confirm your account",
+        });
+        // Clear form on success
+        setEmail('');
+        setPassword('');
+        setFullName('');
+      }
+    } catch (err) {
+      console.error('Unexpected error during sign up:', err);
       toast({
-        title: "Sign Up Error",
-        description: error.message,
+        title: "Error",
+        description: "An unexpected error occurred",
         variant: "destructive"
-      });
-    } else {
-      toast({
-        title: "Success!",
-        description: "Please check your email to confirm your account",
       });
     }
     setIsLoading(false);
@@ -58,12 +92,30 @@ const AuthForm = () => {
     }
 
     setIsLoading(true);
-    const { error } = await signIn(email, password);
+    console.log('Attempting sign in for:', email);
     
-    if (error) {
+    try {
+      const { error } = await signIn(email, password);
+      
+      if (error) {
+        console.error('Sign in error:', error);
+        toast({
+          title: "Sign In Error",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        console.log('Sign in successful, redirecting...');
+        toast({
+          title: "Success!",
+          description: "Welcome back!",
+        });
+      }
+    } catch (err) {
+      console.error('Unexpected error during sign in:', err);
       toast({
-        title: "Sign In Error",
-        description: error.message,
+        title: "Error",
+        description: "An unexpected error occurred",
         variant: "destructive"
       });
     }
@@ -72,17 +124,38 @@ const AuthForm = () => {
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
-    const { error } = await signInWithGoogle();
+    console.log('Attempting Google sign in...');
     
-    if (error) {
+    try {
+      const { error } = await signInWithGoogle();
+      
+      if (error) {
+        console.error('Google sign in error:', error);
+        toast({
+          title: "Google Sign In Error",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
+    } catch (err) {
+      console.error('Unexpected error during Google sign in:', err);
       toast({
-        title: "Google Sign In Error",
-        description: error.message,
+        title: "Error",
+        description: "An unexpected error occurred",
         variant: "destructive"
       });
     }
     setIsLoading(false);
   };
+
+  // Show loading while checking auth state
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">
@@ -100,7 +173,7 @@ const AuthForm = () => {
           <CardDescription>Sign in to your account or create a new one</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="signin" className="w-full">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
@@ -116,6 +189,7 @@ const AuthForm = () => {
                     placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    disabled={isLoading}
                     required
                   />
                 </div>
@@ -127,6 +201,7 @@ const AuthForm = () => {
                     placeholder="Enter your password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading}
                     required
                   />
                 </div>
@@ -147,6 +222,7 @@ const AuthForm = () => {
                     placeholder="Enter your full name"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
+                    disabled={isLoading}
                   />
                 </div>
                 <div className="space-y-2">
@@ -157,6 +233,7 @@ const AuthForm = () => {
                     placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    disabled={isLoading}
                     required
                   />
                 </div>
@@ -168,6 +245,7 @@ const AuthForm = () => {
                     placeholder="Create a password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading}
                     required
                   />
                 </div>
